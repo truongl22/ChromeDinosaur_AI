@@ -22,6 +22,9 @@ dinoDuck = [dinoDuck1, dinoDuck2]
 # Set up images for surface
 track_surface = pygame.image.load("Image/Track/Track.png").convert_alpha()
 
+# Set up font
+FONT = pygame.font.Font('freesansbold.ttf', 22)
+
 
 # Set up Dino class
 class Dino:
@@ -72,9 +75,42 @@ class Dino:
     def drawDino(self, SCREEN):
         SCREEN.blit(self.image, self.dinoRect)
 
+
+# Set up Track class
+class Track:
+    def __init__(self):
+        self.image = track_surface
+
+    def createTrack(self):
+        global x_track_pos, y_track_pos
+        image_width = track_surface.get_width()
+        SCREEN.blit(track_surface, (x_track_pos, y_track_pos))
+        SCREEN.blit(track_surface, (image_width + x_track_pos, y_track_pos))
+        if x_track_pos <= - image_width:
+            x_track_pos = 0
+        x_track_pos -= game_speed
+
+
 # Set up main function
 def main():
+    global game_speed, x_track_pos, y_track_pos, dinos, cactus, points
+    points = 0
+    x_track_pos = 0
+    y_track_pos = 380
+    game_speed = 20
+    score_pos = (830, 50)
+
     dinos = [Dino()]
+    cactus = []
+    track = Track()
+
+    def getScore():
+        global points, game_speed
+        points += 1
+        if points % 100 == 0:
+            game_speed += 1
+        text = FONT.render(f'Points:  {str(points)}', True, 'Black')
+        SCREEN.blit(text, score_pos)
 
     while True:
         for event in pygame.event.get():
@@ -104,6 +140,8 @@ def main():
                 dino.jump = False
                 dino.duck = False
 
+        getScore()
+        track.createTrack()
         Clock.tick(40)
         pygame.display.update()
 
