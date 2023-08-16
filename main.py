@@ -1,10 +1,13 @@
 import pygame
+import random
 from sys import exit
 
 pygame.init()
 
 # Set up screen
-SCREEN = pygame.display.set_mode((1000, 600))
+game_width = 1200
+game_height = 600
+SCREEN = pygame.display.set_mode((game_width, game_height))
 pygame.display.set_caption("Dino Game")
 Clock = pygame.time.Clock()
 
@@ -19,8 +22,15 @@ dinoDuck1 = pygame.image.load("Image/Dino/DinoDuck1.png").convert_alpha()
 dinoDuck2 = pygame.image.load("Image/Dino/DinoDuck2.png").convert_alpha()
 dinoDuck = [dinoDuck1, dinoDuck2]
 
-# Set up images for surface
+# Set up cactus
+cactus1 = pygame.image.load("Image/Cactus/Cactus1.png").convert_alpha()
+cactus2 = pygame.image.load("Image/Cactus/Cactus2.png").convert_alpha()
+cactus3 = pygame.image.load("Image/Cactus/Cactus3.png").convert_alpha()
+cactusArray = [cactus1, cactus2, cactus3]
+
+# Set up background
 track_surface = pygame.image.load("Image/Track/Track.png").convert_alpha()
+cloud = pygame.image.load("Image/Cloud/Cloud.png").convert_alpha()
 
 # Set up font
 FONT = pygame.font.Font('freesansbold.ttf', 22)
@@ -42,7 +52,7 @@ class Dino:
         self.dinoRect = image.get_rect(topleft=(self.x_pos, self.y_pos))
         self.stepIndex = 0
 
-    def update(self):
+    def updateDino(self):
         if self.run:
             self.running()
         if self.jump:
@@ -70,6 +80,7 @@ class Dino:
     def ducking(self):
         self.image = dinoDuck[self.stepIndex // 5]
         self.dinoRect = self.image.get_rect(topleft=(self.x_pos, self.y_duck_pos))
+        self.jump_velocity = self.velocity
         self.stepIndex += 1
 
     def drawDino(self, SCREEN):
@@ -91,6 +102,42 @@ class Track:
         x_track_pos -= game_speed
 
 
+# Set up Cloud class
+class Cloud:
+    cloud_width = cloud.get_width()
+    x = game_width + cloud_width
+    y = 42
+
+    def __init__(self):
+        self.image = cloud
+
+    def createCloud(self):
+        image_width = track_surface.get_width()
+        SCREEN.blit(cloud, (self.x, self.y))
+        if self.x <= - image_width:
+            self.x = game_width + self.cloud_width
+        self.x -= game_speed
+
+
+# Set up Cactus class
+class Cactus:
+    def __init__(self, image):
+        self.image = image
+        self.cactusRect = image.get_rect(topleft=(game_width, 315))
+
+    def updateCactus(self):
+        self.cactusRect.x -= game_speed
+        if self.cactusRect.x < -self.cactusRect.width:
+            cactus.pop()
+
+    def drawCactus(self, SCREEN):
+        SCREEN.blit(self.image, self.cactusRect)
+
+
+def removeDino(index):
+    dinos.pop(index)
+
+
 # Set up main function
 def main():
     global game_speed, x_track_pos, y_track_pos, dinos, cactus, points
@@ -98,11 +145,12 @@ def main():
     x_track_pos = 0
     y_track_pos = 380
     game_speed = 20
-    score_pos = (830, 50)
+    score_pos = (950, 50)
 
     dinos = [Dino()]
     cactus = []
     track = Track()
+    cloud = Cloud()
 
     def getScore():
         global points, game_speed
@@ -120,9 +168,23 @@ def main():
 
         SCREEN.fill((255, 255, 255))
 
-        for dinosaur in dinos:
-            dinosaur.update()
-            dinosaur.drawDino(SCREEN)
+        for d in dinos:
+            d.updateDino()
+            d.drawDino(SCREEN)
+
+        if len(dinos) == 0:
+            break
+
+        if len(cactus) == 0:
+            randomCactus = random.randint(0, 2)
+            cactus.append(Cactus(cactusArray[randomCactus]))
+
+        for c in cactus:
+            c.updateCactus()
+            c.drawCactus(SCREEN)
+            for i, dinosaur in enumerate(dinos):
+                if dinosaur.dinoRect.colliderect(c.cactusRect):
+                    removeDino(i)
 
         user_input = pygame.key.get_pressed()
 
@@ -142,6 +204,7 @@ def main():
 
         getScore()
         track.createTrack()
+        cloud.createCloud()
         Clock.tick(40)
         pygame.display.update()
 
