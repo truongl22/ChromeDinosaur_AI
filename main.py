@@ -28,6 +28,11 @@ cactus2 = pygame.image.load("Image/Cactus/Cactus2.png").convert_alpha()
 cactus3 = pygame.image.load("Image/Cactus/Cactus3.png").convert_alpha()
 cactusArray = [cactus1, cactus2, cactus3]
 
+# Set up Bird
+bird1 = pygame.image.load("Image/Bird/Bird1.png").convert_alpha()
+bird2 = pygame.image.load("Image/Bird/Bird2.png").convert_alpha()
+birds = [bird1, bird2]
+
 # Set up background
 track_surface = pygame.image.load("Image/Track/Track.png").convert_alpha()
 cloud = pygame.image.load("Image/Cloud/Cloud.png").convert_alpha()
@@ -119,19 +124,44 @@ class Cloud:
         self.x -= game_speed
 
 
-# Set up Cactus class
-class Cactus:
-    def __init__(self, image):
+# Set up Enemies class
+class Enemies:
+    def __init__(self, image, type):
+        self.type = type
         self.image = image
-        self.cactusRect = image.get_rect(topleft=(game_width, 315))
+        self.rect = self.image[self.type].get_rect()
+        self.rect.x = game_width
 
-    def updateCactus(self):
-        self.cactusRect.x -= game_speed
-        if self.cactusRect.x < -self.cactusRect.width:
-            cactus.pop()
+    def update(self):
+        self.rect.x -= game_speed
+        if self.rect.x < -self.rect.width:
+            enemies.pop()
 
-    def drawCactus(self, SCREEN):
-        SCREEN.blit(self.image, self.cactusRect)
+    def draw(self, SCREEN):
+        SCREEN.blit(self.image[self.type], self.rect)
+
+
+# Set up Cactus class, inherit from Enemies
+class Cactus(Enemies):
+    def __init__(self, image):
+        self.type = random.randint(0, 2)
+        super().__init__(image, self.type)
+        self.rect.y = 315
+
+
+# Set up Bird class, inherit from Enemies
+class Bird(Enemies):
+    def __init__(self, image):
+        self.type = 0
+        super().__init__(image, self.type)
+        self.rect.y = 250
+        self.index = 0
+
+    def draw(self, SCREEN):
+        if self.index >= 9:
+            self.index = 0
+        SCREEN.blit(self.image[self.index // 5], self.rect)
+        self.index += 1
 
 
 def removeDino(index):
@@ -140,15 +170,14 @@ def removeDino(index):
 
 # Set up main function
 def main():
-    global game_speed, x_track_pos, y_track_pos, dinos, cactus, points
+    global game_speed, x_track_pos, y_track_pos, dinos, enemies, points
     points = 0
-    x_track_pos = 0
-    y_track_pos = 380
     game_speed = 20
+    x_track_pos, y_track_pos = 0, 380
     score_pos = (950, 50)
 
     dinos = [Dino()]
-    cactus = []
+    enemies = []
     track = Track()
     cloud = Cloud()
 
@@ -160,34 +189,8 @@ def main():
         text = FONT.render(f'Points:  {str(points)}', True, 'Black')
         SCREEN.blit(text, score_pos)
 
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
-
-        SCREEN.fill((255, 255, 255))
-
-        for d in dinos:
-            d.updateDino()
-            d.drawDino(SCREEN)
-
-        if len(dinos) == 0:
-            break
-
-        if len(cactus) == 0:
-            randomCactus = random.randint(0, 2)
-            cactus.append(Cactus(cactusArray[randomCactus]))
-
-        for c in cactus:
-            c.updateCactus()
-            c.drawCactus(SCREEN)
-            for i, dinosaur in enumerate(dinos):
-                if dinosaur.dinoRect.colliderect(c.cactusRect):
-                    removeDino(i)
-
+    def handleUserInput():
         user_input = pygame.key.get_pressed()
-
         for i, dino in enumerate(dinos):
             if user_input[pygame.K_SPACE]:
                 dino.run = False
@@ -202,9 +205,43 @@ def main():
                 dino.jump = False
                 dino.duck = False
 
+    def createDino():
+        for d in dinos:
+            d.updateDino()
+            d.drawDino(SCREEN)
+
+    def createEnemies():
+        if len(enemies) == 0:
+            rand = random.randint(0, 10)
+            if rand % 2 == 0:
+                enemies.append(Cactus(cactusArray))
+            if rand == 7 or rand == 5:
+                enemies.append(Bird(birds))
+
+        for e in enemies:
+            e.update()
+            e.draw(SCREEN)
+            for i, dinosaur in enumerate(dinos):
+                if dinosaur.dinoRect.colliderect(e.rect):
+                    removeDino(i)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+        SCREEN.fill((255, 255, 255))
+
+        createDino()
+        createEnemies()
+        handleUserInput()
         getScore()
         track.createTrack()
         cloud.createCloud()
+
+        if len(dinos) == 0:
+            break
         Clock.tick(40)
         pygame.display.update()
 
