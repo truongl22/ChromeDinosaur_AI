@@ -1,5 +1,9 @@
+import neat.config
 import pygame
 import random
+import os
+import math
+import neat
 from sys import exit
 
 pygame.init()
@@ -166,20 +170,38 @@ class Bird(Enemies):
 
 def removeDino(index):
     dinos.pop(index)
+    ge.pop(index)
+    nets.pop(index)
+
+
+def distance(pos_a, pos_b):
+    dx = pos_a[0] - pos_b[0]
+    dy = pos_a[1] - pos_b[1]
+    return math.sqrt(dx ** 2 + dy ** 2)
 
 
 # Set up main function
-def main():
-    global game_speed, x_track_pos, y_track_pos, dinos, enemies, points
+def eval_genomes(genomes, config):
+    global game_speed, x_track_pos, y_track_pos, dinos, enemies, points, ge, nets
     points = 0
     game_speed = 20
     x_track_pos, y_track_pos = 0, 380
     score_pos = (950, 50)
 
-    dinos = [Dino()]
+    dinos = []
+    ge = []
+    nets = []
+
     enemies = []
     track = Track()
     cloud = Cloud()
+
+    for genome_id, genome in genomes:
+        dinos.append(Dino())
+        ge.append(genome)
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
+        nets.append(net)
+        genome.fitness = 0
 
     def getScore():
         global points, game_speed
@@ -215,7 +237,7 @@ def main():
             rand = random.randint(0, 10)
             if rand % 2 == 0:
                 enemies.append(Cactus(cactusArray))
-            if rand == 7 or rand == 5:
+            else:
                 enemies.append(Bird(birds))
 
         for e in enemies:
@@ -223,7 +245,37 @@ def main():
             e.draw(SCREEN)
             for i, dinosaur in enumerate(dinos):
                 if dinosaur.dinoRect.colliderect(e.rect):
+                    ge[i].fitness -= 1
                     removeDino(i)
+
+        for i, dinosaur in enumerate(dinos):
+            dis = distance((dinosaur.dinoRect.x, dinosaur.dinoRect.y), e.rect.midtop)
+
+            output = nets[i].activate((dinosaur.dinoRect.y, dis))
+            # decision = output.index(max(output))
+            print(output)
+            # if decision == 0:  # AI moves up
+            #     dinosaur.jump = False
+            #     dinosaur.run = False
+            #     dinosaur.duck = True
+            # elif decision == 1:  # AI moves down
+            #     dinosaur.jump = True
+            #     dinosaur.run = False
+            #     dinosaur.duck = False
+
+            if output[0] > 0.5 and dinosaur.dinoRect.y == dinosaur.y_pos:
+                dinosaur.jump = True
+                dinosaur.run = False
+
+    def info():
+        global dinos, game_speed, ge
+        text_1 = FONT.render(f'Dino Alive:  {str(len(dinos))}', True, "Black")
+        text_2 = FONT.render(f'Generation:  {pop.generation + 1}', True, "Black")
+        text_3 = FONT.render(f'Current Speed:  {str(game_speed)}', True, "Black")
+
+        SCREEN.blit(text_1, (60, 460))
+        SCREEN.blit(text_2, (60, 490))
+        SCREEN.blit(text_3, (60, 520))
 
     while True:
         for event in pygame.event.get():
@@ -234,16 +286,34 @@ def main():
         SCREEN.fill((255, 255, 255))
 
         createDino()
-        createEnemies()
-        handleUserInput()
-        getScore()
+        # handleUserInput()
         track.createTrack()
         cloud.createCloud()
 
+        createEnemies()
+        info()
+
+        getScore()
         if len(dinos) == 0:
             break
         Clock.tick(40)
         pygame.display.update()
 
+# Set up NEAT
+def run(config):
+    global pop
+    pop = neat.Population(config)
+    pop.run(eval_genomes, 50)
 
-main()
+
+if __name__ == '__main__':
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, 'config.txt')
+    config = neat.config.Config(
+        neat.DefaultGenome,
+        neat.DefaultReproduction,
+        neat.DefaultSpeciesSet,
+        neat.DefaultStagnation,
+        config_path
+    )
+    run(config)
